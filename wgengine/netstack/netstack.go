@@ -34,6 +34,8 @@ import (
 	"tailscale.com/net/packet"
 	"tailscale.com/net/tsaddr"
 	"tailscale.com/net/tstun"
+	"tailscale.com/syncs"
+	"tailscale.com/types/ipproto"
 	"tailscale.com/types/logger"
 	"tailscale.com/types/netmap"
 	"tailscale.com/util/dnsname"
@@ -64,6 +66,8 @@ type Impl struct {
 	// be a subnet router).
 	// It can only be set before calling Start.
 	ProcessSubnets bool
+
+	ProcessSSH syncs.AtomicBool // if configured by IPN prefs
 
 	ipstack *stack.Stack
 	linkEP  *channel.Endpoint
@@ -284,10 +288,7 @@ func (ns *Impl) updateIPs(nm *netmap.NetworkMap) {
 		isAddr[ipp] = true
 	}
 	for _, ipp := range nm.SelfNode.AllowedIPs {
-		local := isAddr[ipp]
-		if local && ns.ProcessLocalIPs || !local && ns.ProcessSubnets {
-			newIPs[ipPrefixToAddressWithPrefix(ipp)] = true
-		}
+		newIPs[ipPrefixToAddressWithPrefix(ipp)] = true
 	}
 
 	ipsToBeAdded := make(map[tcpip.AddressWithPrefix]bool)
@@ -458,6 +459,9 @@ func (ns *Impl) isLocalIP(ip netaddr.IP) bool {
 // shouldProcessInbound reports whether an inbound packet should be
 // handled by netstack.
 func (ns *Impl) shouldProcessInbound(p *packet.Parsed, t *tstun.Wrapper) bool {
+	if ns.isInboundTSSH(p) && ns.ProcessSSH.Get() {
+		return true
+	}
 	if !ns.ProcessLocalIPs && !ns.ProcessSubnets {
 		// Fast path for common case (e.g. Linux server in TUN mode) where
 		// netstack isn't used at all; don't even do an isLocalIP lookup.
@@ -471,6 +475,12 @@ func (ns *Impl) shouldProcessInbound(p *packet.Parsed, t *tstun.Wrapper) bool {
 		return true
 	}
 	return false
+}
+
+func (ns *Impl) isInboundTSSH(p *packet.Parsed) bool {
+	return p.IPProto == ipproto.TCP &&
+		p.Dst.Port() == 22 &&
+		ns.isLocalIP(p.Dst.IP())
 }
 
 func (ns *Impl) injectInbound(p *packet.Parsed, t *tstun.Wrapper) filter.Response {
@@ -554,6 +564,17 @@ func (ns *Impl) acceptTCP(r *tcp.ForwarderRequest) {
 	// block until the TCP handshake is complete.
 	c := gonet.NewTCPConn(&wq, ep)
 
+	ns.logf("XXX LocalPort %v, ssh=%v, isLocalIP=%v", reqDetails.LocalPort, ns.ProcessSSH.Get(), ns.isLocalIP(dialIP))
+	if reqDetails.LocalPort == 22 && ns.ProcessSSH.Get() && ns.isLocalIP(dialIP) {
+		ns.logf("XXX doing ssh demo thing....")
+		if err := doSSHDemoThing(c); err != nil {
+
+			ns.logf("XXX SSH error: %v", err)
+		} else {
+			ns.logf("XXX SSH all good")
+		}
+		return
+	}
 	if ns.ForwardTCPIn != nil {
 		ns.ForwardTCPIn(c, reqDetails.LocalPort)
 		return

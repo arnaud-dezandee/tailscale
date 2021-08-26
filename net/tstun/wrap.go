@@ -22,6 +22,7 @@ import (
 	"inet.af/netaddr"
 	"tailscale.com/disco"
 	"tailscale.com/net/packet"
+	"tailscale.com/syncs"
 	"tailscale.com/tstime/mono"
 	"tailscale.com/types/ipproto"
 	"tailscale.com/types/key"
@@ -71,6 +72,8 @@ type Wrapper struct {
 	// tdev is the underlying Wrapper device.
 	tdev  tun.Device
 	isTAP bool // whether tdev is a TAP device
+
+	RunSSH syncs.AtomicBool
 
 	closeOnce sync.Once
 

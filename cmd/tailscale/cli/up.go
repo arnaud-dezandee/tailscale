@@ -76,6 +76,7 @@ func newUpFlagSet(goos string, upArgs *upArgsT) *flag.FlagSet {
 	upf.StringVar(&upArgs.exitNodeIP, "exit-node", "", "Tailscale IP of the exit node for internet traffic, or empty string to not use an exit node")
 	upf.BoolVar(&upArgs.exitNodeAllowLANAccess, "exit-node-allow-lan-access", false, "Allow direct access to the local network when routing traffic via an exit node")
 	upf.BoolVar(&upArgs.shieldsUp, "shields-up", false, "don't allow incoming connections")
+	upf.BoolVar(&upArgs.runSSH, "ssh", false, "run an SSH server, permitting access per tailnet admin's declared policy")
 	upf.StringVar(&upArgs.advertiseTags, "advertise-tags", "", "comma-separated ACL tags to request; each must start with \"tag:\" (e.g. \"tag:eng,tag:montreal,tag:ssh\")")
 	upf.StringVar(&upArgs.authKeyOrFile, "authkey", "", `node authorization key; if it begins with "file:", then it's a path to a file containing the authkey`)
 	upf.StringVar(&upArgs.hostname, "hostname", "", "hostname to use instead of the one provided by the OS")
@@ -111,6 +112,7 @@ type upArgsT struct {
 	exitNodeIP             string
 	exitNodeAllowLANAccess bool
 	shieldsUp              bool
+	runSSH                 bool
 	forceReauth            bool
 	forceDaemon            bool
 	advertiseRoutes        string
@@ -245,6 +247,7 @@ func prefsFromUpArgs(upArgs upArgsT, warnf logger.Logf, st *ipnstate.Status, goo
 	prefs.CorpDNS = upArgs.acceptDNS
 	prefs.AllowSingleHosts = upArgs.singleRoutes
 	prefs.ShieldsUp = upArgs.shieldsUp
+	prefs.RunSSH = upArgs.runSSH
 	prefs.AdvertiseRoutes = routes
 	prefs.AdvertiseTags = tags
 	prefs.Hostname = upArgs.hostname

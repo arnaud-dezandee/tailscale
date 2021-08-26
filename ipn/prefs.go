@@ -98,6 +98,11 @@ type Prefs struct {
 	// DNS configuration, if it exists.
 	CorpDNS bool
 
+	// RunSSH bool is whether this node should run an SSH
+	// server, permitting access to peers according to the
+	// policies as configured by the Tailnet's admin(s).
+	RunSSH bool
+
 	// WantRunning indicates whether networking should be active on
 	// this node.
 	WantRunning bool
@@ -277,6 +282,9 @@ func (p *Prefs) pretty(goos string) string {
 		sb.WriteString("mesh=false ")
 	}
 	fmt.Fprintf(&sb, "dns=%v want=%v ", p.CorpDNS, p.WantRunning)
+	if p.RunSSH {
+		sb.WriteString("ssh=true ")
+	}
 	if p.LoggedOut {
 		sb.WriteString("loggedout=true ")
 	}
